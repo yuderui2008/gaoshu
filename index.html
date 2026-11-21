@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1e5ee8" />
+<title>高数错题知识图谱助手 · 单文件离线版</title>
+<style>
+.ai-block { background:#f7f9ff; border-radius:12px; padding:12px; margin:10px 0; }
+.ai-block-title { font-size:14px; font-weight:700; margin-bottom:8px; color:var(--primary,#1e5ee8); }
+.field-label { display:block; font-size:13px; color:var(--muted,#7c8497); margin:8px 0 4px; }
+.ai-block input { width:100%; border:1px solid var(--border,#e5e9f2); border-radius:10px; padding:10px 12px; font-size:14px; background:#fff; }
+.ai-note { font-size:14px; line-height:1.6; color:var(--text,#23283a); }
+/* ===== 高数错题知识图谱助手 · 移动优先样式 ===== */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --primary: #1e5ee8;
+  --primary-dark: #1748b8;
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --border: #e5e9f2;
+  --text: #23283a;
+  --muted: #7c8497;
+  --danger: #e5484d;
+  --ok: #1bb66b;
+  --warn: #f0a020;
+}
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: 70px;
+  line-height: 1.55;
+}
+
+/* 顶部 */
+.app-header {
+  background: linear-gradient(135deg, #1e5ee8 0%, #5a3df0 100%);
+  color: #fff;
+  padding: 22px 16px 46px;
+  border-radius: 0 0 26px 26px;
+}
+.app-title { margin: 0; font-size: 21px; font-weight: 700; }
+.badge {
+  font-size: 11px; background: rgba(255,255,255,.2); padding: 2px 8px;
+  border-radius: 20px; vertical-align: middle; margin-left: 4px;
+}
+.app-sub { margin: 6px 0 0; font-size: 13px; opacity: .9; }
+
+/* Tab 栏 */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  display: flex; background: #fff; border-top: 1px solid var(--border);
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 12px rgba(30,60,120,.06);
+}
+.tab {
+  flex: 1; border: none; background: none; padding: 8px 0; font-size: 13px;
+  color: var(--muted); cursor: pointer;
+}
+.tab.active { color: var(--primary); font-weight: 700; }
+
+/* 页面 */
+.page { display: none; max-width: 520px; margin: 0 auto; padding: 14px 14px; }
+.page.active { display: block; }
+
+.card {
+  background: var(--card); border-radius: 16px; padding: 16px;
+  margin-bottom: 14px; box-shadow: 0 4px 16px rgba(30,60,120,.05);
+}
+.card-title { margin: 0 0 12px; font-size: 16px; }
+.card-title:before { content: "" ; }
+.card-title { font-weight: 700; }
+
+/* 按钮 / 输入 */
+.btn {
+  border: none; border-radius: 12px; padding: 12px 16px; font-size: 15px;
+  cursor: pointer; font-weight: 600; transition: opacity .15s, transform .05s;
+}
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--primary); color: #fff; }
+.btn.primary:disabled { background: #b9c8ec; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn.outline { background: #eef3ff; color: var(--primary); }
+.btn.danger { background: #fdecec; color: var(--danger); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+button, select, input, textarea { font-family: inherit; }
+textarea, input[type="text"], input[type="search"], select {
+  width: 100%; border: 1px solid var(--border); border-radius: 12px;
+  padding: 11px 12px; font-size: 15px; background: #fbfcff; color: var(--text);
+}
+textarea:focus, input:focus, select:focus { outline: none; border-color: var(--primary); }
+textarea { resize: vertical; }
+
+/* 拍照 */
+.capture-grid { display: flex; gap: 10px; margin-bottom: 12px; }
+.capture-btn {
+  flex: 1; text-align: center; padding: 20px 0; border-radius: 14px;
+  background: #eef3ff; color: var(--primary); font-weight: 700; font-size: 16px;
+  border: 2px dashed #b9cdf7; cursor: pointer;
+}
+.capture-btn.outline { background: #fff; color: var(--muted); border-color: var(--border); }
+.img-preview { margin: 6px 0; border-radius: 12px; overflow: hidden; }
+.img-preview img { width: 100%; display: block; border-radius: 12px; }
+.hidden { display: none !important; }
+
+.ocr-status { font-size: 13px; color: var(--muted); margin-top: 8px; white-space: pre-wrap; }
+.save-msg { font-size: 14px; margin-top: 10px; color: var(--ok); font-weight: 600; }
+
+/* 表单 */
+.form-row { display: flex; gap: 10px; margin: 10px 0; }
+.form-row .field { flex: 1; }
+.form-row label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.chip-row { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: #eef3ff; color: var(--primary); padding: 4px 10px; border-radius: 20px;
+  font-size: 12px; display: inline-flex; align-items: center; gap: 4px;
+}
+.chip button { border: none; background: none; color: var(--primary); cursor: pointer; font-size: 13px; }
+
+/* 工具栏 */
+.toolbar { display: flex; gap: 8px; margin: 6px 0 14px; max-width: 520px; margin-left: auto; margin-right: auto; padding: 0 14px; }
+.toolbar .filter { width: auto; flex: 1; padding: 10px; font-size: 14px; }
+.toolbar .search { flex: 2; }
+.filter, .search { background: #fff; }
+
+/* 错题卡片 */
+.bank-list { max-width: 520px; margin: 0 auto; padding: 0 14px; }
+.mistake-card {
+  background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(30,60,120,.05); border-left: 4px solid var(--primary);
+}
+.mistake-card.diff-hard { border-left-color: var(--danger); }
+.mistake-card.diff-mid { border-left-color: var(--warn); }
+.mistake-card.diff-easy { border-left-color: var(--ok); }
+.mc-top { display: flex; justify-content: space-between; align-items: center; }
+.mc-meta { font-size: 12px; color: var(--muted); }
+.diff-tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.diff-tag.diff-难 { background: #fdecec; color: var(--danger); }
+.diff-tag.diff-中 { background: #fff4df; color: var(--warn); }
+.diff-tag.diff-易 { background: #e7f8ef; color: var(--ok); }
+.mc-question { white-space: pre-wrap; margin: 8px 0 6px; font-size: 15px; }
+.mc-note { font-size: 13px; color: var(--muted); background: #f7f9ff; border-radius: 8px; padding: 8px; white-space: pre-wrap; }
+.mc-kps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mc-img { max-width: 100%; border-radius: 10px; margin-top: 8px; display: block; max-height: 200px; }
+.mc-actions { display: flex; gap: 8px; margin-top: 10px; }
+.mc-actions button {
+  border: 1px solid var(--border); background: #fff; color: var(--muted);
+  padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer;
+}
+.mc-actions button.del:hover { color: var(--danger); border-color: var(--danger); }
+
+.empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 15px; }
+
+/* 图谱 */
+.graph-chart { width: 100%; height: 460px; }
+.graph-tip { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+
+/* 数据页 */
+.info-list { margin: 0; padding-left: 2px; list-style: none; }
+.info-list li { padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+.info-list li:last-child { border-bottom: none; }
+.stat-row { margin-top: 14px; font-size: 14px; color: var(--primary); font-weight: 600; }
+
+/* 弹层 */
+.modal {
+  position: fixed; inset: 0; background: rgba(20,26,48,.55);
+  display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modal-box {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 460px;
+  max-height: 82vh; overflow: auto; padding: 18px; position: relative;
+}
+.modal-close {
+  position: sticky; top: 0; float: right; border: none; background: #f1f4fb;
+  color: var(--muted); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px;
+}
+.md-title { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
+.md-kps { margin: 8px 0; }
+.md-q { white-space: pre-wrap; background: #f7f9ff; padding: 10px; border-radius: 10px; }
+.md-note { color: var(--muted); font-size: 14px; margin-top: 8px; white-space: pre-wrap; }
+
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1 class="app-title">📚 高数错题知识图谱助手 <span class="badge">OFFLINE版</span></h1>
+  <p class="app-sub">拍照 · 解析 · 保存 · 展示 · 画图 —— 单个文件离线可用</p>
+</header>
+<nav class="tabbar" id="tabbar" aria-label="主导航">
+  <button class="tab active" data-tab="capture">📷 录入</button>
+  <button class="tab" data-tab="bank">🗂 错题库</button>
+  <button class="tab" data-tab="graph">🕸 知识图谱</button>
+  <button class="tab" data-tab="settings">⚙️ 数据</button>
+</nav>
+<main>
+<section id="capture" class="page active">
+  <div class="card">
+    <h2 class="card-title">① 拍照 / 上传题目</h2>
+    <div class="capture-grid">
+      <label class="capture-btn" for="cameraInput">📷 拍照</label>
+      <label class="capture-btn outline" for="fileInput">🖼 相册</label>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+    <input type="file" id="fileInput" accept="image/*" hidden />
+    <div id="imgPreview" class="img-preview hidden"><img id="previewImg" alt="题目预览" /></div>
+    <div class="btn-row">
+      <button id="ocrBtn" class="btn primary" disabled>🔍 解析图片（OCR）</button>
+      <button id="clearImgBtn" class="btn ghost" hidden>清除图片</button>
+    </div>
+    <div id="ocrStatus" class="ocr-status"></div>
+    <p class="graph-tip">💡 点“解析图片”会联网加载识别引擎（首次稍慢）。连不上时可直接手工输入题面，同样可保存。</p>
+  </div>
+  <div class="card">
+    <h2 class="card-title">② 题目内容（可编辑）</h2>
+    <textarea id="questionText" rows="6" placeholder="拍照后点“解析图片”自动识别（需联网）；也可直接输入/粘贴题目文字……&#10;例如：计算极限 lim(x→0) (sin x)/x"></textarea>
+    <div class="form-row">
+      <div class="field">
+        <label>知识点</label>
+        <input list="kpList" id="kpInput" placeholder="输入或选择知识点" autocomplete="off" /><datalist id="kpList"></datalist>
+        <div class="chip-row" id="kpChips"></div>
+      </div>
+      <div class="field">
+        <label>难度</label>
+        <select id="difficulty"><option value="易">易</option><option value="中" selected>中</option><option value="难">难</option></select>
+      </div>
+    </div>
+    <textarea id="noteText" rows="2" placeholder="错因 / 思路 / 反思（选填）"></textarea>
+    <div class="btn-row"><button id="saveBtn" class="btn primary">💾 保存错题</button></div>
+    <div id="saveMsg" class="save-msg"></div>
+  </div>
+</section>
+<section id="bank" class="page">
+  <div class="toolbar">
+    <select id="filterKp" class="filter"><option value="">全部知识点</option></select>
+    <select id="filterDiff" class="filter"><option value="">全部难度</option></select>
+    <input id="searchInput" class="search" type="search" placeholder="🔍 搜索题目…" />
+  </div>
+  <div id="bankList" class="bank-list"></div>
+  <div class="empty" id="bankEmpty" hidden>还没有错题，去“录入”添加第一道吧～ 🎯</div>
+</section>
+<section id="graph" class="page">
+  <div class="card">
+    <p class="graph-tip">🕸 节点=知识点，大小=错题数，颜色=掌握度（红弱→绿好）。点击节点可筛选对应错题。</p>
+    <div id="graphChart" class="graph-chart"></div>
+    <div id="graphEmpty" class="empty" hidden>录入错题后即可生成知识图谱 ✨</div>
+  </div>
+</section>
+<section id="settings" class="page">
+  <div class="card">
+    <h2 class="card-title">数据存储与安全 🔒</h2>
+    <ul class="info-list">
+      <li>💾 全部数据保存在<b>本机浏览器</b>（localStorage），<b>不会上传到任何服务器</b>。</li>
+      <li>📱 同一个浏览器打开即可查看同一份错题。</li>
+      <li>⚠️ 清除浏览器数据 / 换设备 / 开无痕窗口会看不到旧的错题。</li>
+      <li>🔁 可导出备份，换设备后可导入恢复。</li>
+    </ul>
+    <div class="btn-row">
+      <button id="exportBtn" class="btn outline">⬇️ 导出备份</button>
+      <button id="importBtn" class="btn outline">⬆️ 导入备份</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden />
+      <button id="clearBtn" class="btn danger">🗑 清空全部数据</button>
+    </div>
+    <div class="stat-row" id="statRow"></div>
+  </div>
+  <div class="card">
+    <h2 class="card-title">🤖 AI 设置</h2>
+    <p class="graph-tip">图片识别与 AI 讲解可分别用不同的 API（均为 OpenAI 兼容格式）。Key 只保存在<b>本机浏览器</b>，不会上传。免费可选：识别用「智谱 GLM-4V-Flash」、讲解用「DeepSeek」。</p>
+    <div class="ai-block">
+      <div class="ai-block-title">📷 图片识别（智慧视觉模型）</div>
+      <label class="field-label">API 地址 Base URL</label>
+      <input id="visBase" type="text" placeholder="如 https://open.bigmodel.cn/api/paas/v4" />
+      <label class="field-label">API Key</label>
+      <input id="visKey" type="password" placeholder="在此输入你的 Key" />
+      <label class="field-label">模型名</label>
+      <input id="visModel" type="text" placeholder="如 glm-4v-flash" />
+    </div>
+    <div class="ai-block">
+      <div class="ai-block-title">🧠 AI 讲解（文字模型）</div>
+      <label class="field-label">API 地址 Base URL</label>
+      <input id="expBase" type="text" placeholder="如 https://api.deepseek.com/v1" />
+      <label class="field-label">API Key</label>
+      <input id="expKey" type="password" placeholder="在此输入你的 Key" />
+      <label class="field-label">模型名</label>
+      <input id="expModel" type="text" placeholder="如 deepseek-chat" />
+    </div>
+    <div class="btn-row">
+      <button id="aiSaveBtn" class="btn primary">💾 保存 AI 设置</button>
+    </div>
+    <div id="aiBindMsg" class="save-msg"></div>
+  </div>
+  <div class="card">
+    <h2 class="card-title">关于 📖</h2>
+    <ul class="info-list">
+      <li><b>离线版：</b>本文件为单文件离线版，样式/逻辑/画图全部内联，不依赖服务器与外部库。</li>
+      <li><b>启动方式：</b>把本文件发送到手机，用任意浏览器直接打开即可，无需联网。</li>
+      <li><b>OCR 识别：</b>点“解析图片”用视觉 API 识别（需联网与 AI 设置）；连不上时可手工输入题面。</li>
+    </ul>
+  </div>
+</section>
+</main>
+<div id="detailModal" class="modal hidden"><div class="modal-box">
+  <button id="modalClose" class="modal-close">✕</button><div id="modalBody"></div>
+</div></div>
+<script>
+/* ============================================================
+ * 高数错题知识图谱助手 · 纯前端 SPA
+ * 核心流程：拍照 -> 解析(OCR) -> 保存(localStorage) -> 展示 -> 画图(ECharts 知识图谱)
+ * ============================================================ */
+(function () {
+  'use strict';
+
+  /* ---------- 高数知识点体系（用于知识图谱的关系与候选） ---------- */
+  // 每个知识点：{ id, name, group(章), pre: 前置知识点id[] }
+  const KPS = [
+    { id: 'function',  name: '函数与极限',           group: '函数与极限', pre: [] },
+    { id: 'limit',     name: '极限',                 group: '函数与极限', pre: ['function'] },
+    { id: 'continuous',name: '连续与间断',           group: '函数与极限', pre: ['limit'] },
+    { id: 'derivative',name: '导数与求导法则',       group: '导数与微分', pre: ['limit'] },
+    { id: 'differential',name: '微分',               group: '导数与微分', pre: ['derivative'] },
+    { id: 'meanvalue', name: '中值定理',             group: '导数与微分', pre: ['derivative'] },
+    { id: 'lhopital',  name: '洛必达法则',           group: '导数与微分', pre: ['meanvalue', 'limit'] },
+    { id: 'indefinite',name: '不定积分',             group: '积分',       pre: ['derivative'] },
+    { id: 'definite',  name: '定积分',               group: '积分',       pre: ['indefinite'] },
+    { id: 'area',      name: '积分应用与面积',       group: '积分',       pre: ['definite'] },
+    { id: 'quadric',   name: '多元函数微分',         group: '多元与向量', pre: ['derivative'] },
+    { id: 'chain',     name: '链式法则与偏导',       group: '多元与向量', pre: ['quadric'] },
+    { id: 'vector',    name: '向量与空间几何',       group: '多元与向量', pre: ['function'] },
+    { id: 'series',    name: '级数与敛散性',         group: '级数',       pre: ['limit'] },
+    { id: 'taylor',    name: '泰勒展开',             group: '级数',       pre: ['derivative', 'series'] },
+    { id: 'pde',       name: '常微分方程',           group: '微分方程',   pre: ['derivative'] }
+  ];
+  const KP_NAME = {}; KPS.forEach(k => KP_NAME[k.name] = k.id);
+
+  /* ---------- 存储 ---------- */
+  const KEY = 'math_mistakes_v1';
+  let mistakes = [];            // [{id, ts, question, note, kps:[], difficulty, imgData}]
+  let chart = null;
+  let currentPickedImg = null;  // {base64, type}
+  let ocrWorker = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- 工具 ---------- */
+  function load() {
+    try { mistakes = JSON.parse(localStorage.getItem(KEY) || '[]'); }
+    catch (e) { mistakes = []; }
+    if (!Array.isArray(mistakes)) mistakes = [];
+  }
+  function saveAll() {
+    localStorage.setItem(KEY, JSON.stringify(mistakes));
+    renderAll();
+  }
+  function uid() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  /* ---------- Tab 切换 ---------- */
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.toggle('active', p.id === name);
+    });
+    if (name === 'graph') renderGraph();
+    if (name === 'bank') renderBank();
+    if (name === 'settings') renderStats();
+  }
+
+  /* ---------- 知识点输入（多标签） ---------- */
+  const currentKps = [];
+  function refreshKpInput() {
+    const chips = $('kpChips');
+    chips.innerHTML = currentKps.map(k =>
+      `<span class="chip">${esc(k)}<button data-rm="1">✕</button></span>`).join('');
+    chips.querySelectorAll('button[data-rm="1"]').forEach((b, i) => {
+      b.onclick = () => { currentKps.splice(i, 1); refreshKpInput(); };
+    });
+  }
+  function addKp(name) {
+    name = (name || '').trim();
+    if (!name) return;
+    if (!currentKps.includes(name)) { currentKps.push(name); refreshKpInput(); }
+    $('kpInput').value = '';
+  }
+
+  /* ---------- 拍照 / 文件 → base64 ---------- */
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('读取失败'));
+      r.readAsDataURL(file);
+    });
+  }
+  function handleImage(file) {
+    if (!file) return;
+    readFileAsDataURL(file).then(dataUrl => {
+      currentPickedImg = { dataUrl, name: file.name };
+      $('previewImg').src = dataUrl;
+      $('imgPreview').classList.remove('hidden');
+      $('clearImgBtn').hidden = false;
+      $('ocrBtn').disabled = false;
+      $('ocrStatus').textContent = '图片已就绪，可点击“解析图片”进行 OCR 识别。';
+    }).catch(e => { $('ocrStatus').textContent = '图片读取失败：' + e.message; });
+  }
+  function clearImg() {
+    currentPickedImg = null;
+    $('previewImg').removeAttribute('src');
+    $('imgPreview').classList.add('hidden');
+    $('clearImgBtn').hidden = true;
+    $('ocrBtn').disabled = true;
+    $('ocrStatus').textContent = '';
+  }
+
+  /* ---------- OCR 解析（tesseract.js，识别中英文数字） ---------- */
+  async function runOcr() {
+    if (!currentPickedImg) return;
+    const btn = $('ocrBtn');
+    btn.disabled = true;
+    $('ocrStatus').textContent = '正在调用视觉 API 识别图片…';
+    try {
+      const c = aiCfg();
+      const cfg = { baseUrl: c.visBase, key: c.visKey, model: c.visModel };
+      if (!cfg.baseUrl || !cfg.key || !cfg.model) {
+        $('ocrStatus').textContent = '⚠️ 未检测到【图片识别】AI 配置。请前往“数据 → AI 设置”填写 API 地址 / Key / 模型名。';
+        btn.disabled = false;
+        return;
+      }
+      const text = await visionRecognize(currentPickedImg.dataUrl, cfg);
+      const lines = (text || '').replace(/\r/g, '').split('\n').map(s => s.trim())
+        .filter(s => s.length > 0);
+      const existing = $('questionText').value.trim();
+      $('questionText').value = existing
+        ? existing + '\n' + lines.join('\n')
+        : lines.join('\n');
+      $('ocrStatus').textContent = '✅ 识别完成！公式/符号可能不准确，请核对修正后再保存。';
+    } catch (e) {
+      $('ocrStatus').textContent = friendlyAiError('识别失败', e) +
+        '\n\n💡 更省事：可不用本功能——用手机自带文字识别（iPhone相机“实况文本”／微信扫一扫“提取文字”）复制后粘贴到“题目内容”框即可。';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  /* ---------- 保存错题 ---------- */
+  function saveMistake() {
+    const question = $('questionText').value.trim();
+    if (!question) {
+      $('saveMsg').textContent = '⚠️ 请先填写题目内容（或拍照解析）。';
+      return;
+    }
+    const obj = {
+      id: uid(),
+      ts: Date.now(),
+      question,
+      note: $('noteText').value.trim(),
+      difficulty: $('difficulty').value,
+      kps: currentKps.slice().filter((v, i) => currentKps.indexOf(v) === i),
+      imgData: currentPickedImg ? currentPickedImg.dataUrl : null
+    };
+    mistakes.push(obj);
+    saveAll();
+    // 清空表单
+    $('questionText').value = ''; $('noteText').value = '';
+    currentKps.length = 0; refreshKpInput(); clearImg();
+    $('saveMsg').textContent = '✅ 已保存！可到“错题库”或“知识图谱”查看。';
+    setTimeout(() => { $('saveMsg').textContent = ''; }, 4000);
+  }
+
+  /* ---------- 展示：错题库 ---------- */
+  let bankFilter = { kp: '', diff: '', q: '' };
+  function renderBank() {
+    const list = $('bankList');
+    const items = filterMistakes();
+    $('bankEmpty').hidden = items.length > 0;
+    list.innerHTML = items.map(m => {
+      const diffClass = { '易': 'diff-easy', '中': 'diff-mid', '难': 'diff-hard' }[m.difficulty] || 'diff-mid';
+      const imgTag = m.imgData ? `<img class="mc-img" src="${m.imgData}" alt="错题图" />` : '';
+      return `<div class="mistake-card ${diffClass}" data-id="${m.id}">
+        <div class="mc-top">
+          <span class="mc-meta">📅 ${fmtTime(m.ts)}</span>
+          <span class="diff-tag diff-${esc(m.difficulty)}">${esc(m.difficulty)}</span>
+        </div>
+        <div class="mc-question">${esc(m.question)}</div>
+        ${imgTag}
+        ${m.note ? `<div class="mc-note">💡 ${esc(m.note)}</div>` : ''}
+        <div class="mc-kps">${(m.kps || []).map(k => `<span class="chip">${esc(k)}</span>`).join('')}</div>
+        <div class="mc-actions">
+          <button data-view="1">👁 查看</button>
+          <button data-thumb="1">📷 题图</button>
+          <button data-del="1" class="del">🗑 删除</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.mistake-card').forEach(card => {
+      const id = card.dataset.id;
+      card.querySelector('[data-view]').onclick = () => openDetail(id);
+      card.querySelector('[data-thumb]').onclick = () => {
+        const m = mistakes.find(x => x.id === id);
+        if (m && m.imgData) openDetail(id, true); else alert('该题没有图片。');
+      };
+      card.querySelector('[data-del]').onclick = () => {
+        if (confirm('确定删除这条错题吗？')) {
+          mistakes = mistakes.filter(x => x.id !== id);
+          saveAll(); switchTab('bank');
+        }
+      };
+    });
+  }
+  function filterMistakes() {
+    bankFilter.kp = $('filterKp').value;
+    bankFilter.diff = $('filterDiff').value;
+    bankFilter.q = $('searchInput').value.trim().toLowerCase();
+    return mistakes.filter(m => {
+      if (bankFilter.diff && m.difficulty !== bankFilter.diff) return false;
+      if (bankFilter.q && !(m.question + ' ' + (m.note || '') + ' ' + (m.kps || []).join(' ')).toLowerCase().includes(bankFilter.q)) return false;
+      if (bankFilter.kp && !(m.kps || []).includes(bankFilter.kp)) return false;
+      return true;
+    }).sort((a, b) => b.ts - a.ts);
+  }
+
+  /* ---------- 弹层详情 ---------- */
+  function openDetail(id, preferImg) {
+    const m = mistakes.find(x => x.id === id);
+    if (!m) return;
+    $('modalBody').innerHTML = `
+      <h3 class="md-title">错题详情${preferImg && m.imgData ? ' · 题图' : ''}</h3>
+      <div class="md-kps">${(m.kps || []).map(k => `<span class="chip">${esc(k)}</span>`).join('')}
+        <span class="diff-tag diff-${esc(m.difficulty)}">${esc(m.difficulty)}</span></div>
+      <div class="md-q">${esc(m.question)}</div>
+      ${preferImg && m.imgData ? `<img class="mc-img" src="${m.imgData}" style="margin-top:10px" />` : ''}
+      ${m.note ? `<div class="md-note">💡 ${esc(m.note)}</div>` : ''}
+      <div class="mc-meta" style="margin-top:10px">📅 ${fmtTime(m.ts)}</div>
+      <div class="btn-row"><button id="aiExplainBtn" class="btn primary" style="width:100%">🤖 AI 讲解这道题</button></div>
+      <div id="aiExplainBox" class="ai-note" style="margin-top:10px"></div>`;
+    $('detailModal').classList.remove('hidden');
+    const btn = $('aiExplainBtn');
+    if (btn) btn.onclick = () => explainProblem(m.id);
+  }
+  function closeModal() { $('detailModal').classList.add('hidden'); }
+
+  /* ---------- 画图：ECharts 知识图谱 ---------- */
+  function renderGraph() {
+    $('graphEmpty').hidden = mistakes.length > 0;
+    const chartEl = $('graphChart');
+    if (chartEl.offsetParent === null && !document.getElementById('graph').classList.contains('active')) {
+      return; // 页面不可见时延后
+    }
+
+    // 统计每个知识点被引用的次数
+    const count = {};
+    mistakes.forEach(m => (m.kps || []).forEach(k => { count[k] = (count[k] || 0) + 1; }));
+    const kpIds = Object.keys(count);
+
+    // 节点：有错题的知识点
+    const nodes = kpIds
+      .map(name => {
+        const spec = KPS.find(k => k.name === name);
+        const base = spec ? spec.id : undefined;
+        const shown = spec ? spec.name : name;
+        return {
+          name: shown, symbolSize: 24 + Math.min(40, count[name] * 8),
+          value: count[name], catogory: spec ? spec.group : '其他',
+          // 颜色映射：由最近错题难度评定掌握度示意
+          itemStyle: badgeColor(name, count[name])
+        };
+      });
+    // 需要同时画出：有前置关系但还没错题的知识点？为保证图清晰，仅画出有错题的知识点 + 其前置连线
+    // 边：仅当两端都有错题才连线（避免孤点噪音），否则画到“章”父节点
+    const nameToNode = {}; nodes.forEach(n => nameToNode[n.name] = n);
+    const edges = [];
+    const groupNodes = {};
+    nodes.forEach(n => {
+      const spec = KPS.find(k => k.name === n.name);
+      if (!spec) return;
+      // 章组线：知识点 -> 章
+      if (!groupNodes[spec.group]) {
+        const hasNode = kpIds.includes(spec.group);
+        // 章节组节点（若章名与知识点名不同则生成聚合节点）
+        const rep = currentKpsGroupTooltip(spec.group, count);
+        groupNodes[spec.group] = { name: spec.group, symbolSize: 46, value: rep,
+          itemStyle: { color: '#8aa1c9' }, label: { show: true } };
+      }
+      // 前置关系
+      (spec.pre || []).forEach(preId => {
+        const preSpec = KPS.find(k => k.id === preId);
+        if (preSpec && nameToNode[preSpec.name]) {
+          edges.push({ source: preSpec.name, target: n.name, weight: 1 });
+        }
+      });
+    });
+    // 加上"章"聚合节点
+    const allNodes = nodes.concat(Object.values(groupNodes));
+    // 知识点 -> 章 连线（权重为该章错题数，线条加粗）
+    nodes.forEach(n => {
+      const spec = KPS.find(k => k.name === n.name);
+      if (spec && groupNodes[spec.group]) {
+        edges.push({ source: n.name, target: spec.group, weight: count[n.name] });
+      }
+    });
+
+    initChart(allNodes, edges);
+  }
+  function currentKpsGroupTooltip(group, count) {
+    // 章聚合节点大小 = 该章所有存在错题知识点数量之和
+    let s = 0;
+    Object.keys(count).forEach(n => {
+      const sp = KPS.find(k => k.name === n);
+      if (sp && sp.group === group) s += count[n];
+    });
+    return s;
+  }
+  function badgeColor(name, cnt) {
+    // 掌握度示意：错题多=红色偏弱，错题少=绿色偏稳（用户可按自己标准）
+    if (cnt >= 5) return { color: '#e5484d' };   // 弱
+    if (cnt >= 3) return { color: '#f0a020' };   // 中
+    return { color: '#1bb66b' };                 // 稳
+  }
+  function initChart(nodes, edges) {
+    // 自包含版本: 使用纯 Canvas 力导向图, 不依赖任何外部库
+    const wrap = $('graphChart');
+    if (graphCtx) { graphCtx.stop(); }
+    graphCtx = new CanvasGraph(wrap, nodes, edges);
+    graphCtx.run();
+  }
+  function gotoBankFilter(kpName) {
+    // 同步下拉框
+    const sel = $('filterKp');
+    let opt = Array.from(sel.options).find(o => o.value === kpName);
+    if (!opt) {
+      opt = new Option(kpName, kpName);
+      sel.add(opt);
+    }
+    sel.value = kpName;
+    $('searchInput').value = '';
+    switchTab('bank');
+  }
+
+
+  /* ---------- 动态加载脚本(多源) ---------- */
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('load fail: ' + url));
+      document.head.appendChild(s);
+    });
+  }
+
+  /* ---------- 自包含 Canvas 力导向图 ---------- */
+  let graphCtx = null;
+  class CanvasGraph {
+    constructor(host, nodes, edges) {
+      this.host = host;
+      this.nodes = nodes.map(n => ({ ...n, x: 0, y: 0, vx: 0, vy: 0 }));
+      this.edges = edges || [];
+      this.w = host.clientWidth || 320;
+      this.h = host.clientHeight || 420;
+      host.innerHTML = '<canvas style="width:100%;height:100%;display:block"></canvas>';
+      this.canvas = host.querySelector('canvas');
+      this.ctx = this.canvas.getContext('2d');
+      this.dpr = window.devicePixelRatio || 1;
+      this.canvas.width = this.w * this.dpr;
+      this.canvas.height = this.h * this.dpr;
+      this.ctx.scale(this.dpr, this.dpr);
+      this.running = false;
+      this.dragNode = null;
+      // 环形初始布局
+      const n = this.nodes.length, cx = this.w / 2, cy = this.h / 2;
+      this.nodes.forEach((nd, i) => {
+        const a = (i / Math.max(1, n)) * Math.PI * 2;
+        const r = Math.min(this.w, this.h) * 0.32;
+        nd.x = cx + Math.cos(a) * r;
+        nd.y = cy + Math.sin(a) * r;
+      });
+      this.bind();
+    }
+    bind() {
+      const c = this.canvas, parent = this;
+      c.addEventListener('touchstart', e => { e.preventDefault(); this.pick(e); }, { passive: false });
+      c.addEventListener('touchmove',  e => { e.preventDefault(); this.drag(e); },  { passive: false });
+      c.addEventListener('touchend',   e => { this.drop(e); });
+      c.addEventListener('mousedown', e => this.pick(e));
+      c.addEventListener('mousemove', e => { if (this.dragNode) this.drag(e); });
+      c.addEventListener('mouseup', e => this.drop(e));
+    }
+    posFromEvent(e) {
+      const r = this.canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    }
+    pick(e) {
+      const p = this.posFromEvent(e);
+      for (let i = this.nodes.length - 1; i >= 0; i--) {
+        const nd = this.nodes[i];
+        if (Math.hypot(p.x - nd.x, p.y - nd.y) <= (nd.symbolSize || 20) / 2 + 4) {
+          this.dragNode = nd; nd.vx = 0; nd.vy = 0;
+          if (e.type === 'touchstart') return;
+          // 点按: 一次命中后若不是拖拽则跳转
+          this.clickNode(nd);
+          return;
+        }
+      }
+    }
+    drag(e) {
+      if (!this.dragNode) return;
+      const p = this.posFromEvent(e);
+      this.dragNode.x = p.x; this.dragNode.y = p.y;
+      this.dragNode.vx = 0; this.dragNode.vy = 0;
+      this.draw();
+    }
+    drop() { this.dragNode = null; }
+    clickNode(nd) {
+      // 依据 nodes 里的名称联动错题库
+      const name = nd.name || '';
+      if (name) gotoBankFilter(name);
+    }
+    step() {
+      const nodes = this.nodes, edges = this.edges;
+      const rep = 260, edgeLen = 120, spring = 0.03, gravity = 0.015;
+      // 斥力
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          let d = Math.hypot(dx, dy) || 1;
+          const f = rep / (d * d);
+          const fx = (dx / d) * f, fy = (dy / d) * f;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        }
+      }
+      // 弹簧(边)
+      for (const e of edges) {
+        const sa = nodes.find(n => n.name === e.source), ta = nodes.find(n => n.name === e.target);
+        if (!sa || !ta || sa === ta) continue;
+        const dx = ta.x - sa.x, dy = ta.y - sa.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const f = (d - edgeLen) * spring;
+        const fx = (dx / d) * f, fy = (dy / d) * f;
+        sa.vx += fx; sa.vy += fy; ta.vx -= fx; ta.vy -= fy;
+      }
+      // 引力到中心 + 阻尼
+      for (const nd of nodes) {
+        if (nd === this.dragNode) continue;
+        nd.vx += (this.w / 2 - nd.x) * gravity;
+        nd.vy += (this.h * 0.45 - nd.y) * gravity;
+        nd.vx *= 0.85; nd.vy *= 0.85;
+        nd.x += nd.vx; nd.y += nd.vy;
+        nd.x = Math.max(18, Math.min(this.w - 18, nd.x));
+        nd.y = Math.max(18, Math.min(this.h - 18, nd.y));
+      }
+    }
+    labelWidth(t) { return (t ? String(t).length : 0) * 12; }
+    draw() {
+      const ctx = this.ctx, nodes = this.nodes;
+      ctx.clearRect(0, 0, this.w, this.h);
+      ctx.lineWidth = 1;
+      for (const e of this.edges) {
+        const sa = nodes.find(n => n.name === e.source), ta = nodes.find(n => n.name === e.target);
+        if (!sa || !ta) continue;
+        ctx.strokeStyle = 'rgba(120,140,180,0.45)';
+        ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(ta.x, ta.y); ctx.stroke();
+      }
+      for (const nd of nodes) {
+        const r = (nd.symbolSize || 20) / 2;
+        ctx.beginPath(); ctx.arc(nd.x, nd.y, r, 0, Math.PI * 2);
+        const c = (nd.itemStyle && nd.itemStyle.color) || '#1e5ee8';
+        ctx.fillStyle = c; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#23283a';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        const lw = this.labelWidth(nd.name);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillRect(nd.x - lw / 2 - 2, nd.y - r - 15, lw + 4, 15);
+        ctx.fillStyle = '#23283a';
+        ctx.fillText(nd.name, nd.x, nd.y - r - 4);
+        // 题数
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(nd.value || '', nd.x, nd.y + 4);
+      }
+    }
+    loop = () => { if (!this.running) return; this.step(); this.draw(); requestAnimationFrame(this.loop); };
+    run() { if (this.running) return; this.running = true; this.loop(); }
+    stop() { this.running = false; }
+  }
+
+  /* ---------- AI 设置读写 (Key 只存本机 localStorage) ---------- */
+  const AICFG_KEY = 'math_ai_cfg_v1';
+  function aiCfg(def) {
+    let o = {};
+    try { o = JSON.parse(localStorage.getItem(AICFG_KEY) || '{}') || {}; } catch (e) { o = {}; }
+    return Object.assign({
+      visBase: '', visKey: '', visModel: '',
+      expBase: '', expKey: '', expModel: ''
+    }, o);
+  }
+  function aiCfgSave(patch) {
+    localStorage.setItem(AICFG_KEY, JSON.stringify(Object.assign(aiCfg(), patch)));
+  }
+  function loadAISettingsForm() {
+    const c = aiCfg();
+    $('visBase').value = c.visBase; $('visKey').value = c.visKey; $('visModel').value = c.visModel;
+    $('expBase').value = c.expBase; $('expKey').value = c.expKey; $('expModel').value = c.expModel;
+    $('aiBindMsg').textContent = '';
+  }
+  function saveAISettingsForm() {
+    aiCfgSave({
+      visBase: $('visBase').value.trim(), visKey: $('visKey').value.trim(), visModel: $('visModel').value.trim(),
+      expBase: $('expBase').value.trim(), expKey: $('expKey').value.trim(), expModel: $('expModel').value.trim()
+    });
+    $('aiBindMsg').textContent = '✅ 已保存。图片识别与讲解配置已生效。';
+    setTimeout(() => { if ($('aiBindMsg')) $('aiBindMsg').textContent = ''; }, 3000);
+  }
+
+  /* ---------- OpenAI 兼容 Chat Completions 调用 ---------- */
+  function normalizeBase(u) {
+    return (u || '').trim().replace(/[\\/]+$/g, '').replace(/\/chat\/completions$/gi, '');
+  }
+  // 友好错误提示: 区分 网络/跨域 与 接口业务错误
+  function friendlyAiError(prefix, e) {
+    const msg = e && e.message ? String(e.message) : String(e);
+    const low = msg.toLowerCase();
+    if (low.indexOf('failed to fetch') !== -1 || low.indexOf('networkerror') !== -1 ||
+        low.indexOf('load failed') !== -1 || low.indexOf('cors') !== -1 ||
+        low.indexOf('blocked by cors') !== -1 || low.indexOf('neterr_') !== -1) {
+      return '❌ ' + prefix + '：网络或跨域（CORS）问题。请确认：1) 能联网访问该 API 域名；2) 该平台的接口允许浏览器直连（支持 CORS）；' +
+        '3) 若用 file:// 打开，建议通过本地 http 服务访问。';
+    }
+    if (/http \\d{3}/.test(low)) {
+      return '❌ ' + prefix + '：接口返回错误（' + msg + '）。请检查 Base URL / Key / 模型名是否正确，或查看密钥/额度。';
+    }
+    return '❌ ' + prefix + '：' + msg;
+  }
+  async function chatRequest(cfg, messages) {
+    if (!cfg || !cfg.baseUrl || !cfg.key || !cfg.model) {
+      throw new Error('AI 配置不完整：Base URL / Key / 模型名 缺少。');
+    }
+    const base = normalizeBase(cfg.baseUrl);
+    const url = base + '/chat/completions';
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key },
+        body: JSON.stringify({ model: cfg.model, messages, temperature: 0.3 })
+      });
+    } catch (e) {
+      throw new Error('无法连接：' + (e && e.message ? e.message : e));
+    }
+    if (!resp.ok) {
+      let detail = ''; try { detail = JSON.stringify(await resp.json()); } catch (e) {}
+      throw new Error('HTTP ' + resp.status + (detail ? ' ' + detail : ''));
+    }
+    const data = await resp.json();
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  }
+
+  /* ---------- 图片识别（视觉 API）---------- */
+  async function visionRecognize(dataUrl, cfg) {
+    const messages = [{
+      role: 'user',
+      content: [
+        { type: 'text', text: '你是高等数学 OCR 助手。请把这张题目图片中的完整题干逐字准确地识别出来，只输出题干,不要任何解释、不要解题过程。数学公式请精确输出为 LaTeX：(1) 行内公式用 \\( ... \\) 包裹，如 \\( x_n \\)、\\( x^2 \\)；(2) 独立公式用 \\[ ... \\] 包裹，如 \\[ \\lim_{x \\to 0} \\frac{\\sin x}{x} = 1 \\]；(3) 常用命令: \\lim、\\sum、\\int、\\frac{}{}、\\sqrt{}、上标 ^、下标 _、希腊字母 \\alpha \\beta \\varepsilon \\pi；(4) 中文文字直接用中文。务必保留原题逻辑与符号顺序。' },
+        { type: 'image_url', image_url: { url: dataUrl } }
+      ]
+    }];
+    return await chatRequest(cfg, messages);
+  }
+
+  /* ---------- AI 讲解 ---------- */
+  const SYSTEM_EXPLAIN = '你是一个耐心细致的高等数学老师，擅长给大学生讲数学题。' +
+    '请用中文、Markdown 输出，结构建议：【知识点回顾】→【解题思路】→【逐步推理】→【易错提醒】→【举一反三】。' +
+    '关于数学公式，请务必遵守以下格式约定（重要）：\n' +
+    '1) 行内公式一律用 \\( ... \\) 包裹，例如 \\( \\varepsilon > 0 \\)、\\( x_n - x_m \\)，且行内公式前后务必紧贴文字、不得换行；\n' +
+    '2) 独立公式块一律用 \\[ ... \\] 包裹，例如 \\[ |x_m - x_n| < 1 \\]，独立块前后各留一个空行；\n' +
+    '3) 不要使用 $ ... $ 或 $$ ... $$；\n' +
+    '4) 加粗（**...**）段落内不得跨公式使用；行内公式与加粗不要在同一标记内混用；\n' +
+    '5) 常用命令写法：\\varepsilon、\\in、\\exists、\\forall、\\le、\\ge、\\infty、\\lim_{k\\to\\infty}、\\sum_{i=1}^{n}、\\frac{a}{b}。' +
+    '请循序渐进、通俗易懂。';
+  function escAi(s) { return esc(String(s == null ? '' : s)); }
+
+  /* ---------- Markdown + LaTeX 渲染 (动态加载 marked/KaTeX, 多源回退) ---------- */
+  const RENDERERS = {
+    marked: [
+      'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js',
+      'https://unpkg.com/marked@12.0.2/marked.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/marked/12.0.2/marked.min.js'
+    ],
+    katexCss: [
+      'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+      'https://unpkg.com/katex@0.16.11/dist/katex.min.css'
+    ],
+    katex: [
+      'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js',
+      'https://unpkg.com/katex@0.16.11/dist/katex.min.js'
+    ],
+    autoRender: [
+      'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js',
+      'https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js'
+    ]
+  };
+  const loadedCache = {};
+  function loadLib(key, isStyle) {
+    if (loadedCache[key]) return loadedCache[key];
+    const p = (async () => {
+      let lastErr = null;
+      for (const url of (RENDERERS[key] || [])) {
+        try {
+          if (isStyle) {
+            if ([...document.querySelectorAll('link')].some(l => l.href && l.href.indexOf('katex') !== -1)) return true;
+            await loadStyle(url);
+          } else {
+            if (key === 'marked' && window.marked) return true;
+            if (key === 'katex' && window.katex) return true;
+            if (key === 'autoRender' && window.renderMathInElement) return true;
+            await loadScript(url);
+          }
+          return true;
+        } catch (e) { lastErr = e; }
+      }
+      throw (lastErr || new Error('load fail: ' + key));
+    })();
+    loadedCache[key] = p;
+    return p;
+  }
+  function loadStyle(url) {
+    return new Promise((resolve, reject) => {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = url;
+      l.onload = resolve; l.onerror = () => reject(new Error('style fail: ' + url));
+      document.head.appendChild(l);
+    });
+  }
+  // 解码常见 HTML 实体 (预设: 模型可能直接返回 &gt; &lt; &amp; 等)
+  function decodeEntities(s) {
+    const map = { '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
+    return String(s == null ? '' : s).replace(/&(lt|gt|amp|quot|#39|nbsp);/g, (m, k) => map['&' + k + ';'] || m);
+  }
+  async function renderMarkdown(t) {
+    const raw = String(t == null ? '' : t);
+    // 尝试用 marked + KaTeX 完整渲染（手动占位法：先保护公式再解析 Markdown，最后渲染公式）
+    if (window.marked || await loadLib('marked').catch(() => false)) {
+      try {
+        await Promise.allSettled([loadLib('katexCss', true), loadLib('katex')]);
+
+        // ---------- 第 0 步：预处理，合并公式周围多余换行（修复断句） ----------
+        text = decodeEntities(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        // 用临时魔法串保护公式定界符，避免被普通空行归一误伤
+        text = text.replace(/\\\(/g, '\u0001lparen\u0001').replace(/\\\)/g, '\u0001rparen\u0001')
+                   .replace(/\\\[/g, '\u0001lbrack\u0001').replace(/\\\]/g, '\u0001rbrack\u0001');
+        // 行内公式定界符 (\(...\)) 前后的连续空白/换行 → 单个空格（保持句子连续）
+        text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lparen\u0001)/g, ' $2')
+                   .replace(/(\u0001rparen\u0001)([ \t]*\n+[ \t]*)+/g, '$1 ');
+        // 独立块定界符 \[ ... \] 前后各保留一个空行（成为段落边界）
+        text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lbrack\u0001)/g, '\n\n$2')
+                   .replace(/(\u0001rbrack\u0001)([ \t]*\n+[ \t]*)+/g, '$1\n\n');
+        // 其余多余空行归一为单空行
+        text = text.replace(/\n{3,}/g, '\n\n');
+        // 还原定界符
+        text = text.replace(/\u0001lparen\u0001/g, '\\(').replace(/\u0001rparen\u0001/g, '\\)')
+                   .replace(/\u0001lbrack\u0001/g, '\\[').replace(/\u0001rbrack\u0001/g, '\\]');
+        const formulas = [];
+        const mark = (tex, display) => {
+          formulas.push({ tex: String(tex).trim(), display: !!(display) });
+          const idx = formulas.length - 1;
+          return display ? '\n\n\u0000BLK' + idx + '\u0000\n\n' : '\u0000INL' + idx + '\u0000';
+        };
+        let protectedText = text;
+        // 独立块 $$...$$ 与 \[...\]
+        protectedText = protectedText.replace(/\$\$([\s\S]+?)\$\$/g, (m, p) => mark(p, true));
+        protectedText = protectedText.replace(/\\\[([\s\S]+?)\\\]/g, (m, p) => mark(p, true));
+        // 行内 \(...\)
+        protectedText = protectedText.replace(/\\\(([\s\S]+?)\\\)/g, (m, p) => mark(p, false));
+        // 行内 $...$（不跨行，避免误匹配）
+        protectedText = protectedText.replace(/\$([^$\n]+?)\$/g, (m, p) => mark(p, false));
+        // 合并多余空行后解析（行内占位符含控制符，不会被切段）
+        protectedText = protectedText.replace(/\n{2,}/g, '\n\n');
+
+        // ---------- 第二步：解析 Markdown ----------
+        let html = marked.parse(protectedText, { breaks: true, gfm: true });
+
+        // ---------- 第三步：把占位符替换为 KaTeX 渲染结果 ----------
+        const renderOne = (tex, display) => {
+          if (window.katex && window.katex.renderToString) {
+            try {
+              return window.katex.renderToString(tex, { displayMode: display, throwOnError: false, strict: false });
+            } catch (e) { }
+          }
+          return '<span class="math-fallback">' + esc(tex) + '</span>';
+        };
+        html = html
+          .replace(/\u0000INL(\d+)\u0000/g, (m, idx) => renderOne((formulas[Number(idx)] || {}).tex || '', false))
+          .replace(/\u0000BLK(\d+)\u0000/g, (m, idx) => {
+            const f = formulas[Number(idx)];
+            return '<div class="math-block" style="text-align:center;margin:.4em 0">' + renderOne(f ? f.tex : '', true) + '</div>';
+          });
+        const wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        // ---------- 第四步：尝试处理未能被占位的残留公式 ----------
+        if (window.renderMathInElement) {
+          try {
+            window.renderMathInElement(wrap, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '\\[', right: '\\]', display: true },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false, strict: false
+            });
+          } catch (e) { }
+        }
+        wrap.querySelectorAll('script,iframe,style,object').forEach(n => n.remove());
+        return wrap.innerHTML;
+      } catch (e) { /* 回退到兜底 */ }
+    }
+    // 2. 兜底: 极简渲染 + 实体解码 + 常见 LaTeX 命令转 Unicode (纯离线/无 CDN)
+    return renderFallback(raw);
+  }
+  function renderFallback(raw) {
+    let x = decodeEntities(raw);
+    // 常见 LaTeX 常量 → Unicode 数学符号
+    x = x.replace(/\\quad|\\qquad|\\,|\\;/g, ' ');
+    x = x.replace(/\\varepsilon|\\epsilon/g, 'ε');
+    x = x.replace(/\\infty/g, '∞');
+    x = x.replace(/\\leq|\\le|\\leqslant/g, '≤');
+    x = x.replace(/\\geq|\\ge|\\geqslant/g, '≥');
+    x = x.replace(/\\lt/g, '<');
+    x = x.replace(/\\gt/g, '>');
+    x = x.replace(/\\ne|\\neq/g, '≠');
+    x = x.replace(/\\times/g, '×');
+    x = x.replace(/\\cdot/g, '·');
+    x = x.replace(/\\pm/g, '±');
+    x = x.replace(/\\dots/g, '…');
+    x = x.replace(/\\lim_{([^}]*)}/g, 'lim<sub>$1</sub>');
+    x = x.replace(/\\sum_{([^}]*)}/g, 'Σ<sub>$1</sub>');
+    x = x.replace(/\\int/g, '∫');
+    x = x.replace(/\\to|\\rightarrow|\\longrightarrow/g, '→');
+    x = x.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)');
+    x = x.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+    // 去掉剩余反斜杠（命令残留）
+    x = x.replace(/\\\\(|\\)/g, '').replace(/\\([a-zA-Z]+)/g, '$1');
+    x = x.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+    x = x.replace(/^#{1,6}\s*(.*)$/gm, '<b>$1</b>');
+    x = x.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    x = x.replace(/^[-*]\s+(.*)$/gm, '• $1');
+    return x.replace(/\n/g, '<br/>');
+  }
+  async function explainProblem(id) {
+    const m = mistakes.find(x => x.id === id);
+    if (!m) return;
+    const c = aiCfg();
+    const cfg = { baseUrl: c.expBase, key: c.expKey, model: c.expModel };
+    const box = $('aiExplainBox');
+    if (!box) return;
+    if (!cfg.baseUrl || !cfg.key || !cfg.model) {
+      box.innerHTML = '<div class="ai-note">⚠️ 未检测到【AI 讲解】配置。请前往“数据 → AI 设置”填写 API 地址 / Key / 模型名。</div>';
+      return;
+    }
+    box.innerHTML = '<div class="ai-note">⏳ 正在请 AI 讲解，请稍候…</div>';
+    const q = '题目：' + m.question + '\\n知识点：' + (m.kps || []).join('、') + '\\n难度：' + m.difficulty + (m.note ? '\\n错因/我的思路：' + m.note : '');
+    try {
+      const answer = await chatRequest(cfg, [
+        { role: 'system', content: SYSTEM_EXPLAIN },
+        { role: 'user', content: '请为下面这道题做详细讲解（含知识点回顾、解题思路、逐步推理、易错提醒）：\\n' + q }
+      ]);
+      box.innerHTML = '<div class="ai-note">⏳ 正在格式化讲解内容…</div>';
+      const rendered = await renderMarkdown(answer);
+      box.innerHTML = '<div class="ai-note" style="line-height:1.7" id="aiRendered">' + rendered + '</div>';
+    } catch (e) {
+      box.innerHTML = '<div class="ai-note" style="color:var(--danger);white-space:pre-line">' + escAi(friendlyAiError('讲解失败', e)) + '</div>';
+    }
+  }
+
+  /* ---------- AI 启动接线 ---------- */
+  function initAI() {
+    const sb = $('aiSaveBtn');
+    if (sb) sb.onclick = saveAISettingsForm;
+    // 进入"数据"页时读取设置
+    loadAISettingsForm();
+  }
+
+  /* ---------- 数据页：统计 / 导出 / 导入 / 清空 ---------- */
+  function renderStats() {
+    const total = mistakes.length;
+    const diffCount = { '易': 0, '中': 0, '难': 0 };
+    const kpSet = new Set();
+    mistakes.forEach(m => {
+      if (diffCount.hasOwnProperty(m.difficulty)) diffCount[m.difficulty]++;
+      (m.kps || []).forEach(k => kpSet.add(k));
+    });
+    $('statRow').innerHTML =
+      `共 <b>${total}</b> 道错题 ｜ 接触 <b>${kpSet.size}</b> 个知识点<br/>` +
+      `易 ${diffCount['易']} · 中 ${diffCount['中']} · 难 ${diffCount['难']}`;
+  }
+  function exportBackup() {
+    if (!mistakes.length) { alert('暂无数据可导出。'); return; }
+    const blob = new Blob([JSON.stringify(mistakes, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '高数错题备份_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function importBackup(file) {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const arr = JSON.parse(r.result);
+        if (!Array.isArray(arr)) throw new Error('格式错误');
+        const confirmed = confirm(`确认导入 ${arr.length} 条错题？（会覆盖当前数据）`);
+        if (!confirmed) return;
+        mistakes = arr;
+        saveAll(); switchTab('settings');
+        alert('导入成功！');
+      } catch (e) { alert('备份文件无效：' + e.message); }
+    };
+    r.readAsText(file);
+  }
+  function clearAll() {
+    if (confirm('确定清空全部错题数据吗？此操作不可恢复！')) {
+      mistakes = [];
+      saveAll(); switchTab('settings');
+    }
+  }
+
+  /* ---------- 渲染汇总与事件绑定 ---------- */
+  function refreshFilters() {
+    // 知识点下拉
+    const kpSet = new Set();
+    mistakes.forEach(m => (m.kps || []).forEach(k => kpSet.add(k)));
+
+    // 录入页 datalist
+    const dl = $('kpList');
+    dl.innerHTML = KPS.map(k => `<option value="${esc(k.name)}">`).join('')
+      + Array.from(kpSet).map(k => `<option value="${esc(k)}">`).join('');
+
+    // 错题库筛选下拉
+    const sel = $('filterKp');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">全部知识点</option>'
+      + Array.from(kpSet).sort().map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')
+      + (cur ? (kpSet.has(cur) ? '' : `<option value="${esc(cur)}">${esc(cur)}</option>`) : '');
+    if (cur) sel.value = cur;
+  }
+
+  function renderAll() {
+    refreshFilters(); refreshKpInput();
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+      const id = activePage.id;
+      if (id === 'bank') renderBank();
+      if (id === 'graph') renderGraph();
+      if (id === 'settings') renderStats();
+    }
+  }
+
+  function bindEvents() {
+    // Tab
+    document.querySelectorAll('.tab').forEach(t =>
+      t.onclick = () => switchTab(t.dataset.tab));
+
+    // 录入区
+    $('cameraInput').onchange = e => handleImage(e.target.files[0]);
+    $('fileInput').onchange = e => handleImage(e.target.files[0]);
+    $('clearImgBtn').onclick = clearImg;
+    $('ocrBtn').onclick = runOcr;
+    $('kpInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',' || e.key === '，') {
+        e.preventDefault(); addKp($('kpInput').value);
+      }
+    });
+    $('kpList').addEventListener('change', () => { addKp($('kpInput').value); });
+    $('saveBtn').onclick = saveMistake;
+
+    // 错题库筛选
+    ['filterKp', 'filterDiff', 'searchInput'].forEach(id =>
+      $(id).addEventListener('input', () => renderBank()));
+
+    // 弹层
+    $('modalClose').onclick = closeModal;
+    $('detailModal').addEventListener('click', e => { if (e.target.id === 'detailModal') closeModal(); });
+
+    // 设置
+    $('exportBtn').onclick = exportBackup;
+    $('importBtn').onclick = () => $('importFile').click();
+    $('importFile').onchange = e => { importBackup(e.target.files[0]); e.target.value = ''; };
+    $('clearBtn').onclick = clearAll;
+  }
+
+  /* ---------- 启动 ---------- */
+  load();
+  bindEvents();
+  switchTab('capture');
+  renderAll();
+  initAI();
+})();
+
+</script>
+</body>
+</html>
