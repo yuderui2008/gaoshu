@@ -438,7 +438,8 @@ textarea { resize: vertical; }
         return;
       }
       const text = await visionRecognize(currentPickedImg.dataUrl, cfg);
-      const lines = (text || '').replace(/\r/g, '').split('\n').map(s => s.trim())
+      const cleaned = bleachLatex(text || '');
+      const lines = cleaned.replace(/\r/g, '').split('\n').map(s => s.trim())
         .filter(s => s.length > 0);
       const existing = $('questionText').value.trim();
       $('questionText').value = existing
@@ -874,7 +875,9 @@ textarea { resize: vertical; }
     const messages = [{
       role: 'user',
       content: [
-        { type: 'text', text: '你是高等数学 OCR 助手。请把这张题目图片中的完整题干逐字准确地识别出来，只输出题干,不要任何解释、不要解题过程。数学公式请精确输出为 LaTeX：(1) 行内公式用 \\( ... \\) 包裹，如 \\( x_n \\)、\\( x^2 \\)；(2) 独立公式用 \\[ ... \\] 包裹，如 \\[ \\lim_{x \\to 0} \\frac{\\sin x}{x} = 1 \\]；(3) 常用命令: \\lim、\\sum、\\int、\\frac{}{}、\\sqrt{}、上标 ^、下标 _、希腊字母 \\alpha \\beta \\varepsilon \\pi；(4) 中文文字直接用中文。务必保留原题逻辑与符号顺序。' },
+        { type: 'text', text: '你是高等数学 OCR 助手。请把这张题目图片中的完整题干识别成【纯文本正文】，只输出题干，不要任何解释、不要解题过程、不要用 \\( \\) 或 \\[ \\] 或 \\begin \\item 等任何 LaTeX 命令/定界符/反斜杠。\n' +
+            '数学式用自然可读的 Unicode 表现，规则：(1) 分式写 (a/b)，如 (1/(3^n+1))；(2) 幂指数用中文“的n次方”或上标写法，如 3^n、x²；(3) 极限写 lim、积分写 ∫、求和写 Σ、无穷写 ∞、趋于写 →、小于等于 ≤；(4) 根式用 √()，如 √2；(5) 希腊字母直接用 ε α β π Σ；(6) 连加、枚举题直接写成一行自然文字，不要用 enumerate 列表结构。\n' +
+            '务必保留原题逻辑、字母和数字准确，中文用中文。' },
         { type: 'image_url', image_url: { url: dataUrl } }
       ]
     }];
@@ -884,12 +887,13 @@ textarea { resize: vertical; }
   /* ---------- AI 讲解 ---------- */
   const SYSTEM_EXPLAIN = '你是一个耐心细致的高等数学老师，擅长给大学生讲数学题。' +
     '请用中文、Markdown 输出，结构建议：【知识点回顾】→【解题思路】→【逐步推理】→【易错提醒】→【举一反三】。' +
-    '关于数学公式，请务必遵守以下格式约定（重要）：\n' +
-    '1) 行内公式一律用 \\( ... \\) 包裹，例如 \\( \\varepsilon > 0 \\)、\\( x_n - x_m \\)，且行内公式前后务必紧贴文字、不得换行；\n' +
-    '2) 独立公式块一律用 \\[ ... \\] 包裹，例如 \\[ |x_m - x_n| < 1 \\]，独立块前后各留一个空行；\n' +
-    '3) 不要使用 $ ... $ 或 $$ ... $$；\n' +
-    '4) 加粗（**...**）段落内不得跨公式使用；行内公式与加粗不要在同一标记内混用；\n' +
-    '5) 常用命令写法：\\varepsilon、\\in、\\exists、\\forall、\\le、\\ge、\\infty、\\lim_{k\\to\\infty}、\\sum_{i=1}^{n}、\\frac{a}{b}。' +
+    '重要：本应用不支持 LaTeX/数学渲染器，请【绝对不要输出任何 LaTeX 命令、反斜杠 \\ 、frac/sqrt/lim_ 等命令源码、以及 \\( \\) 或 \\[ \\] 定界符】。' +
+    '数学式子请全部写成普通可读的 Unicode 文本，规则：\n' +
+    '1) 希腊字母用符号：ε、δ、α、β、π、Σ、Δ；极限写 lim；积分写 ∫；平方根用 √，如 √(1+x²)；\n' +
+    '2) 分式写成 (a/b)，幂用上标下标符号或 ^，如 x²、x_n、aₙ（可用 <sub></sub> 下标、<sup></sup> 上标）；\n' +
+    '3) 求和写 Σ、求积写 Π，如 Σ(k=1 到 n)；无穷写 ∞；小于等于/大于等于写 ≤ ≥；不等于写 ≠；趋于写 →；\n' +
+    '4) 乘法用 × 或省略，如 1/3^n 写 (1/3)^n；不要用 \\frac、\\sqrt、\\sum、\\lim 这类带反斜杠的命令；\n' +
+    '5) 如果你必须展示一个式子，请用上面自然的 Unicode 写法直接写在正文里，不要用任何定界符包裹。' +
     '请循序渐进、通俗易懂。';
   function escAi(s) { return esc(String(s == null ? '' : s)); }
 
@@ -1080,29 +1084,55 @@ textarea { resize: vertical; }
     // 2. 兜底: 极简渲染 + 实体解码 + 常见 LaTeX 命令转 Unicode (纯离线/无 CDN)
     return renderFallback(raw);
   }
-  function renderFallback(raw) {
-    let x = decodeEntities(raw);
-    // 常见 LaTeX 常量 → Unicode 数学符号
-    x = x.replace(/\\quad|\\qquad|\\,|\\;/g, ' ');
+  // 内置 LaTeX → Unicode 转换器: 不依赖任何 CDN, 保证任何残留 LaTeX 都渲染为可读文本
+  function bleachLatex(s) {
+    if (!s) return '';
+    let x = decodeEntities(String(s));
+    // 先剥离常见的公式定界符占位 (\( \), \[ \], $$ 等)
+    x = x.replace(/\\\(|\\\)|\\\[|\\\]|\$\$|\$/g, '');
+    // 常见 LaTeX 常量/命令 → Unicode
+    x = x.replace(/\\,(?!\w)/g, ' ').replace(/\\;|\\quad|\\qquad|\\enspace/g, ' ');
     x = x.replace(/\\varepsilon|\\epsilon/g, 'ε');
     x = x.replace(/\\infty/g, '∞');
+    x = x.replace(/\\pi/g, 'π');
+    x = x.replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β').replace(/\\delta/g, 'δ');
+    x = x.replace(/\\left|\\right|\\big|\\Big|\\bigg|\\Bigg/g, '');  // 先清左右定界, 避免 \left 被 \le 误吞
     x = x.replace(/\\leq|\\le|\\leqslant/g, '≤');
     x = x.replace(/\\geq|\\ge|\\geqslant/g, '≥');
-    x = x.replace(/\\lt/g, '<');
-    x = x.replace(/\\gt/g, '>');
-    x = x.replace(/\\ne|\\neq/g, '≠');
+    x = x.replace(/\\lt\b/g, '<').replace(/\\gt\b/g, '>');
+    x = x.replace(/\\ne|\\neq|\\neq/g, '≠');
     x = x.replace(/\\times/g, '×');
-    x = x.replace(/\\cdot/g, '·');
+    x = x.replace(/\\cdots|\\dots|\\ldots/g, '…');
+    x = x.replace(/\\cdot/g, '⋅');
     x = x.replace(/\\pm/g, '±');
-    x = x.replace(/\\dots/g, '…');
+    // 删除 LaTeX 列表/环境控制结构残余 (begin/end/item 及其花括号), 保留中文题干自然文本
+    x = x.replace(/\\begin\{[^}]*\}|\\end\{[^}]*\}|\\item/g, '');
+    x = x.replace(/\\cup/g, '∪').replace(/\\cap/g, '∩').replace(/\\subset/g, '⊂');
+    x = x.replace(/\\in\b/g, '∈').replace(/\\notin\b/g, '∉').replace(/\\exists\b/g, '∃').replace(/\\forall\b/g, '∀');
+    x = x.replace(/\\to|\\rightarrow|\\longrightarrow|\\Rightarrow/g, '→');
     x = x.replace(/\\lim_{([^}]*)}/g, 'lim<sub>$1</sub>');
     x = x.replace(/\\sum_{([^}]*)}/g, 'Σ<sub>$1</sub>');
-    x = x.replace(/\\int/g, '∫');
-    x = x.replace(/\\to|\\rightarrow|\\longrightarrow/g, '→');
-    x = x.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)');
-    x = x.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
-    // 去掉剩余反斜杠（命令残留）
-    x = x.replace(/\\\\(|\\)/g, '').replace(/\\([a-zA-Z]+)/g, '$1');
+    x = x.replace(/\\prod_{([^}]*)}/g, 'Π<sub>$1</sub>');
+    x = x.replace(/\\int(?=[^a-zA-Z]|$)/, '∫');
+    x = x.replace(/\\limits/g, '');
+    // 可重复转换嵌套分式/根式 (最多 6 轮)
+    for (let i = 0; i < 6; i++) {
+      let changed = false;
+      x = x.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => { changed = true; return '(' + a + ')/(' + b + ')'; });
+      x = x.replace(/\\dfrac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => { changed = true; return '(' + a + ')/(' + b + ')'; });
+      x = x.replace(/\\sqrt\[?(\d*)\]?\{([^{}]*)\}/g, (m, n, r) => { changed = true; return '√' + (n ? '[' + n + ']' : '') + '(' + r + ')'; });
+      if (!changed) break;
+    }
+    // 上下标: ^ 和 _ 后接 {..} 或单字符
+    x = x.replace(/\^\{?([^\s{}]+)\}?/g, (m, c) => '<sup>' + c + '</sup>');
+    x = x.replace(/_\{?([^\s{}]+)\}?/g, (m, c) => '<sub>' + c + '</sub>');
+    // 去掉剩余未知命令 (如 \mathrm, \textcolor 等): 补全反斜杠后的字母序列
+    x = x.replace(/\\([a-zA-Z]+)/g, '$1');
+    return x;
+  }
+  function renderFallback(raw) {
+    let x = bleachLatex(raw);
+    // 轻量 Markdown
     x = x.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
     x = x.replace(/^#{1,6}\s*(.*)$/gm, '<b>$1</b>');
     x = x.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
