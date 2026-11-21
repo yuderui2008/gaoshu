@@ -893,23 +893,33 @@ textarea { resize: vertical; }
     '请循序渐进、通俗易懂。';
   function escAi(s) { return esc(String(s == null ? '' : s)); }
 
-  /* ---------- Markdown + LaTeX 渲染 (动态加载 marked/KaTeX, 多源回退) ---------- */
+  /* ---------- Markdown + LaTeX 渲染 (动态加载 mathjax/marked, 多源回退含国内镜像) ---------- */
   const RENDERERS = {
+    mathjax: [
+      'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
+      'https://cdn.bootcdn.net/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js',
+      'https://cdn.staticfile.org/mathjax/3.2.2/es5/tex-mml-chtml.js',
+      'https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js'
+    ],
     marked: [
       'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js',
-      'https://unpkg.com/marked@12.0.2/marked.min.js',
-      'https://cdn.bootcdn.net/ajax/libs/marked/12.0.2/marked.min.js'
+      'https://cdn.bootcdn.net/ajax/libs/marked/12.0.2/marked.min.js',
+      'https://cdn.staticfile.org/marked/12.0.2/marked.min.js',
+      'https://unpkg.com/marked@12.0.2/marked.min.js'
     ],
     katexCss: [
       'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
+      'https://cdn.bootcdn.net/ajax/libs/katex/0.16.11/katex.min.css',
       'https://unpkg.com/katex@0.16.11/dist/katex.min.css'
     ],
     katex: [
       'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/katex/0.16.11/katex.min.js',
       'https://unpkg.com/katex@0.16.11/dist/katex.min.js'
     ],
     autoRender: [
       'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/katex/0.16.11/katex.min.js',
       'https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js'
     ]
   };
@@ -924,6 +934,7 @@ textarea { resize: vertical; }
             if ([...document.querySelectorAll('link')].some(l => l.href && l.href.indexOf('katex') !== -1)) return true;
             await loadStyle(url);
           } else {
+            if (key === 'mathjax' && window.MathJax && window.MathJax.typesetPromise) return true;
             if (key === 'marked' && window.marked) return true;
             if (key === 'katex' && window.katex) return true;
             if (key === 'autoRender' && window.renderMathInElement) return true;
@@ -952,25 +963,63 @@ textarea { resize: vertical; }
   }
   async function renderMarkdown(t) {
     const raw = String(t == null ? '' : t);
-    // 尝试用 marked + KaTeX 完整渲染（手动占位法：先保护公式再解析 Markdown，最后渲染公式）
+    // 主路径首选 MathJax（对已插入 DOM 用 typesetPromise 渲染，公式显示最可靠）
+    const mjLoaded = await loadLib('mathjax').catch(() => false);
+    if (window.MathJax || mjLoaded) {
+      try {
+        const hasMarked = await loadLib('marked').catch(() => false);
+        // ---------- 第 0 步：预处理，合并公式周围多余换行（修复断句） ----------
+        let text = decodeEntities(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        text = text.replace(/\\\(/g, '\u0001lparen\u0001').replace(/\\\)/g, '\u0001rparen\u0001')
+                   .replace(/\\\[/g, '\u0001lbrack\u0001').replace(/\\\]/g, '\u0001rbrack\u0001');
+        text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lparen\u0001)/g, ' $2')
+                   .replace(/(\u0001rparen\u0001)([ \t]*\n+[ \t]*)+/g, '$1 ');
+        text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lbrack\u0001)/g, '\n\n$2')
+                   .replace(/(\u0001rbrack\u0001)([ \t]*\n+[ \t]*)+/g, '$1\n\n');
+        text = text.replace(/\n{3,}/g, '\n\n');
+        text = text.replace(/\u0001lparen\u0001/g, '\\(').replace(/\u0001rparen\u0001/g, '\\)')
+                   .replace(/\u0001lbrack\u0001/g, '\\[').replace(/\u0001rbrack\u0001/g, '\\]');
+        // ---------- 用 marked 渲染 Markdown，但要保护 \(...\)/\[...\] 不被 marked 当转义破坏 ----------
+        // 方案：先把公式定界符替换为占位符，marked 之后还原，再交 MathJax 渲染
+        const formulas = [];
+        const mark = (tex, display) => { formulas.push({ tex: String(tex).trim(), display: !!display }); return display ? '\n\n@@B' + (formulas.length - 1) + '@@\n\n' : '@@I' + (formulas.length - 1) + '@@'; };
+        let protectedText = text;
+        protectedText = protectedText.replace(/\$\$([\s\S]+?)\$\$/g, (m, p) => mark(p, true));
+        protectedText = protectedText.replace(/\\\[([\s\S]+?)\\\]/g, (m, p) => mark(p, true));
+        protectedText = protectedText.replace(/\\\(([\s\S]+?)\\\)/g, (m, p) => mark(p, false));
+        protectedText = protectedText.replace(/\$([^$\n]+?)\$/g, (m, p) => mark(p, false));
+        protectedText = protectedText.replace(/\n{2,}/g, '\n\n');
+        // ---------- marked 解析（若 marked 可用），否则最小兜底文本 ----------
+        let html = '';
+        if (window.marked) {
+          html = window.marked.parse(protectedText, { breaks: true, gfm: true });
+        } else {
+          html = protectedText.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n{2,}/g, '<br/><br/>').replace(/\n/g, '<br/>');
+        }
+        // ---------- 还原公式占位符为 MathJax 定界符文本（typesetPromise 再渲染） ----------
+        html = html
+          .replace(/@@I(\d+)@@/g, (m, idx) => { const f = formulas[Number(idx)]; return '\\(' + (f ? f.tex : '') + '\\)'; })
+          .replace(/@@B(\d+)@@/g, (m, idx) => { const f = formulas[Number(idx)]; return '<div class="math-block" style="text-align:center;margin:.5em 0">' + '\\[' + (f ? f.tex : '') + '\\]' + '</div>'; });
+        const wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        wrap.querySelectorAll('script,iframe,style,object').forEach(n => n.remove());
+        return wrap.innerHTML;
+      } catch (e) { /* 回退 */ }
+    }
+    // ---------- KaTeX 兜底路径（MathJax 加载失败时用 KaTeX） ----------
     if (window.marked || await loadLib('marked').catch(() => false)) {
       try {
         await Promise.allSettled([loadLib('katexCss', true), loadLib('katex')]);
 
         // ---------- 第 0 步：预处理，合并公式周围多余换行（修复断句） ----------
-        text = decodeEntities(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        // 用临时魔法串保护公式定界符，避免被普通空行归一误伤
+        let text = decodeEntities(raw).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         text = text.replace(/\\\(/g, '\u0001lparen\u0001').replace(/\\\)/g, '\u0001rparen\u0001')
                    .replace(/\\\[/g, '\u0001lbrack\u0001').replace(/\\\]/g, '\u0001rbrack\u0001');
-        // 行内公式定界符 (\(...\)) 前后的连续空白/换行 → 单个空格（保持句子连续）
         text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lparen\u0001)/g, ' $2')
                    .replace(/(\u0001rparen\u0001)([ \t]*\n+[ \t]*)+/g, '$1 ');
-        // 独立块定界符 \[ ... \] 前后各保留一个空行（成为段落边界）
         text = text.replace(/([ \t]*\n+[ \t]*)+(\u0001lbrack\u0001)/g, '\n\n$2')
                    .replace(/(\u0001rbrack\u0001)([ \t]*\n+[ \t]*)+/g, '$1\n\n');
-        // 其余多余空行归一为单空行
         text = text.replace(/\n{3,}/g, '\n\n');
-        // 还原定界符
         text = text.replace(/\u0001lparen\u0001/g, '\\(').replace(/\u0001rparen\u0001/g, '\\)')
                    .replace(/\u0001lbrack\u0001/g, '\\[').replace(/\u0001rbrack\u0001/g, '\\]');
         const formulas = [];
@@ -1081,6 +1130,10 @@ textarea { resize: vertical; }
       box.innerHTML = '<div class="ai-note">⏳ 正在格式化讲解内容…</div>';
       const rendered = await renderMarkdown(answer);
       box.innerHTML = '<div class="ai-note" style="line-height:1.7" id="aiRendered">' + rendered + '</div>';
+      // 若走的是 MathJax 渲染, 内容插入后需触发一次 typeset 让公式生效
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        try { await window.MathJax.typesetPromise([box]); } catch (e) { }
+      }
     } catch (e) {
       box.innerHTML = '<div class="ai-note" style="color:var(--danger);white-space:pre-line">' + escAi(friendlyAiError('讲解失败', e)) + '</div>';
     }
