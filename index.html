@@ -188,6 +188,10 @@ textarea { resize: vertical; }
 <header class="app-header">
   <h1 class="app-title">📚 高数错题知识图谱助手 <span class="badge">OFFLINE版</span></h1>
   <p class="app-sub">拍照 · 解析 · 保存 · 展示 · 画图 —— 单个文件离线可用</p>
+  <div style="background:#fff7e6;border:1px solid #ffd591;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px;color:#ad6800;line-height:1.5">
+    <b>版本 V2.1 · 无乱码版</b>：识别与讲解均已改为可读文本（不再输出 LaTeX 源码）。
+    若本行是 <b>黄色提示</b>，说明你已用上新版；<b>如果没有这一行</b>，说明手机跑的还是旧缓存，请彻底刷新。
+  </div>
 </header>
 <nav class="tabbar" id="tabbar" aria-label="主导航">
   <button class="tab active" data-tab="capture">📷 录入</button>
@@ -227,7 +231,13 @@ textarea { resize: vertical; }
         <select id="difficulty"><option value="易">易</option><option value="中" selected>中</option><option value="难">难</option></select>
       </div>
     </div>
-    <textarea id="noteText" rows="2" placeholder="错因 / 思路 / 反思（选填）"></textarea>
+    <textarea id="noteText" rows="2" placeholder="错因 / 思路 / 反思（选填；AI 讲解后也可自动保存）"></textarea>
+    <div class="btn-row">
+      <button id="aiTagBtn" class="btn">🤖 AI 识别知识点/难度</button>
+      <button id="aiExplainBtn" class="btn primary">🤖 AI 讲解并随题保存</button>
+    </div>
+    <div id="aiStatus" class="ocr-status"></div>
+    <div id="aiExplainHomeBox" class="ai-note" style="display:none"></div>
     <div class="btn-row"><button id="saveBtn" class="btn primary">💾 保存错题</button></div>
     <div id="saveMsg" class="save-msg"></div>
   </div>
@@ -340,6 +350,7 @@ textarea { resize: vertical; }
   let chart = null;
   let currentPickedImg = null;  // {base64, type}
   let ocrWorker = null;
+  let pendingExplain = '';      // 录入页 AI 讲解内容, 保存时随错题写入
 
   const $ = (id) => document.getElementById(id);
 
@@ -358,6 +369,10 @@ textarea { resize: vertical; }
     return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[m]));
+  }
+  function short(s, n) {
+    s = String(s == null ? '' : s).replace(/[#*`>\[\]](?=\S)/g, '').trim();
+    return s.length > n ? s.slice(0, n) + '…' : s;
   }
   function fmtTime(ts) {
     const d = new Date(ts);
@@ -467,14 +482,17 @@ textarea { resize: vertical; }
       note: $('noteText').value.trim(),
       difficulty: $('difficulty').value,
       kps: currentKps.slice().filter((v, i) => currentKps.indexOf(v) === i),
-      imgData: currentPickedImg ? currentPickedImg.dataUrl : null
+      imgData: currentPickedImg ? currentPickedImg.dataUrl : null,
+      explain: (typeof pendingExplain === 'string' && pendingExplain.trim()) ? pendingExplain.trim() : ''
     };
     mistakes.push(obj);
     saveAll();
     // 清空表单
     $('questionText').value = ''; $('noteText').value = '';
     currentKps.length = 0; refreshKpInput(); clearImg();
-    $('saveMsg').textContent = '✅ 已保存！可到“错题库”或“知识图谱”查看。';
+    pendingExplain = '';
+    const he = $('aiExplainHomeBox'); if (he) { he.style.display = 'none'; he.innerHTML = ''; }
+    $('saveMsg').textContent = '✅ 已保存！可到“错题库”或“知识图谱”查看。' + (obj.explain ? '（含 AI 讲解）' : '');
     setTimeout(() => { $('saveMsg').textContent = ''; }, 4000);
   }
 
@@ -495,6 +513,7 @@ textarea { resize: vertical; }
         <div class="mc-question">${esc(m.question)}</div>
         ${imgTag}
         ${m.note ? `<div class="mc-note">💡 ${esc(m.note)}</div>` : ''}
+        ${m.explain ? `<div class="mc-note" style="color:var(--primary,#1e5ee8)">🤖 ${esc(short(m.explain, 90))}</div>` : ''}
         <div class="mc-kps">${(m.kps || []).map(k => `<span class="chip">${esc(k)}</span>`).join('')}</div>
         <div class="mc-actions">
           <button data-view="1">👁 查看</button>
@@ -542,6 +561,7 @@ textarea { resize: vertical; }
       <div class="md-q">${esc(m.question)}</div>
       ${preferImg && m.imgData ? `<img class="mc-img" src="${m.imgData}" style="margin-top:10px" />` : ''}
       ${m.note ? `<div class="md-note">💡 ${esc(m.note)}</div>` : ''}
+      ${m.explain ? `<div class="md-note" style="margin-top:10px;color:var(--primary,#1e5ee8)"><b>🤖 AI 讲解</b><div style="font-weight:400;white-space:pre-line;margin-top:4px">${esc(m.explain)}</div></div>` : ''}
       <div class="mc-meta" style="margin-top:10px">📅 ${fmtTime(m.ts)}</div>
       <div class="btn-row"><button id="aiExplainBtn" class="btn primary" style="width:100%">🤖 AI 讲解这道题</button></div>
       <div id="aiExplainBox" class="ai-note" style="margin-top:10px"></div>`;
@@ -1169,6 +1189,83 @@ textarea { resize: vertical; }
     }
   }
 
+  /* ---------- 录入页 AI 智能识别 + 讲解 (pendingExplain 已在 app.js 声明) ---------- */
+  function aiExpCfg() {
+    const c = aiCfg();
+    return { baseUrl: c.expBase, key: c.expKey, model: c.expModel };
+  }
+  function aiStatus(msg) { const el = $('aiStatus'); if (el) el.textContent = msg; }
+  // AI 识别知识点与难度, 自动填入表单
+  async function aiSmartTag() {
+    const q = $('questionText').value.trim();
+    if (!q) { aiStatus('⚠️ 先填写/识别题目内容，再点“AI 识别”。'); return; }
+    const cfg = aiExpCfg();
+    if (!cfg.baseUrl || !cfg.key || !cfg.model) {
+      aiStatus('⚠️ 未检测到【AI 讲解】配置。请先到“数据 → AI 设置”填写。');
+      return;
+    }
+    const btn = $('aiTagBtn'); btn.disabled = true;
+    aiStatus('🤖 正在识别知识点与难度…');
+    const sys = '你是高等数学助教。给你一道题的题干，识别它涉及的知识点和难度。' +
+      '知识点优先从下面列表里选（输出精确名称，可多选，用中文）：' +
+      KPS.map(k => k.name).join('、') + '。若不在列表里，就说回合适的中文名词。' +
+      '难度只可选“易”“中”“难”三者之一。' +
+      '请只输出一个 JSON 对象，形如 {"kps":["知识点1","知识点2"],"difficulty":"中"}，不要输出其他文字、不要 markdown 代码块。';
+    try {
+      const ans = (await chatRequest(cfg, [
+        { role: 'system', content: sys },
+        { role: 'user', content: '题目：' + q }
+      ])).trim().replace(/^```\w*|```$/g, '');
+      const m = ans.match(/\{[\s\S]*\}/);
+      const data = m ? JSON.parse(m[0]) : {};
+      const kps = Array.isArray(data.kps) ? data.kps.map(x => String(x).trim()).filter(Boolean) : [];
+      const diff = ['易', '中', '难'].includes(data.difficulty) ? data.difficulty : '';
+      if (kps.length) {
+        currentKps.length = 0;
+        kps.forEach(k => { if (!currentKps.includes(k)) currentKps.push(k); });
+        refreshKpInput();
+      }
+      if (diff) $('difficulty').value = diff;
+      aiStatus('✅ 已自动识别' + (kps.length ? '知识点：' + kps.join('、') : '知识点（未识别到）') + (diff ? '；难度：' + diff : '') + '。可核对修改后再保存。');
+    } catch (e) {
+      aiStatus(friendlyAiError('识别失败', e));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  // 录入页 AI 讲解, 结果随题保存
+  async function aiExplainHome() {
+    const q = $('questionText').value.trim();
+    if (!q) { aiStatus('⚠️ 先填写/识别题目内容，再点“AI 讲解”。'); return; }
+    const cfg = aiExpCfg();
+    if (!cfg.baseUrl || !cfg.key || !cfg.model) {
+      aiStatus('⚠️ 未检测到【AI 讲解】配置。请先到“数据 → AI 设置”填写。');
+      return;
+    }
+    const btn = $('aiExplainBtn'); btn.disabled = true;
+    const box = $('aiExplainHomeBox'); box.style.display = 'block';
+    aiStatus('⏳ 正在请 AI 讲解，请稍候…');
+    box.innerHTML = '<div class="ai-note">⏳ 正在生成讲解…</div>';
+    try {
+      const answer = await chatRequest(cfg, [
+        { role: 'system', content: SYSTEM_EXPLAIN },
+        { role: 'user', content: '请为下面这道题做详细讲解（含知识点回顾、解题思路、逐步推理、易错提醒），用可读文本，不要 LaTeX 源码：\n题目：' + q +
+          (currentKps.length ? '\n已知知识点：' + currentKps.join('、') : '') + '\n难度：' + $('difficulty').value }
+      ]);
+      pendingExplain = answer;
+      box.innerHTML = '<div class="ai-note">⏳ 正在格式化…</div>';
+      const rendered = await renderMarkdown(answer);
+      box.innerHTML = '<h4 style="margin:0 0 6px">🤖 AI 讲解（将随此题保存）</h4>' + '<div style="line-height:1.7">' + rendered + '</div>';
+      if (window.MathJax && window.MathJax.typesetPromise) { try { await window.MathJax.typesetPromise([box]); } catch (e) { } }
+      aiStatus('✅ 讲解已生成，点“保存错题”会连同讲解一起存入错题库。');
+    } catch (e) {
+      box.innerHTML = '<div class="ai-note" style="color:var(--danger);white-space:pre-line">' + escAi(friendlyAiError('讲解失败', e)) + '</div>';
+      aiStatus('');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   /* ---------- AI 启动接线 ---------- */
   function initAI() {
     const sb = $('aiSaveBtn');
@@ -1270,6 +1367,8 @@ textarea { resize: vertical; }
     });
     $('kpList').addEventListener('change', () => { addKp($('kpInput').value); });
     $('saveBtn').onclick = saveMistake;
+    const tagBtn = $('aiTagBtn'); if (tagBtn) tagBtn.onclick = aiSmartTag;
+    const expBtn = $('aiExplainBtn'); if (expBtn) expBtn.onclick = aiExplainHome;
 
     // 错题库筛选
     ['filterKp', 'filterDiff', 'searchInput'].forEach(id =>
